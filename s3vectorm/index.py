@@ -36,11 +36,11 @@ if T.TYPE_CHECKING:  # pragma: no cover
     from .metadata import Expr, CompoundExpr
 
 # TypeVar for preserving Vector subclass types
-VectorT = T.TypeVar('VectorT', bound='Vector')
+VectorT = T.TypeVar("VectorT", bound="Vector")
 
 
 @dataclasses.dataclass(frozen=True)
-class QueryVectorsOutput(boto3_dataclass_s3vectors.type_defs.QueryVectorsOutput):
+class VectorsOutputMixin:
     """
     Represents the output from a vector query operation.
 
@@ -59,6 +59,7 @@ class QueryVectorsOutput(boto3_dataclass_s3vectors.type_defs.QueryVectorsOutput)
         ... )
         >>> vectors = output.as_vector_objects(Vector)
     """
+
     data_type: "DataTypeType" = dataclasses.field()
 
     def as_vector_objects(
@@ -127,6 +128,22 @@ class QueryVectorsOutput(boto3_dataclass_s3vectors.type_defs.QueryVectorsOutput)
             return vectors
         else:
             return []
+
+
+@dataclasses.dataclass(frozen=True)
+class QueryVectorsOutput(
+    boto3_dataclass_s3vectors.type_defs.QueryVectorsOutput,
+    VectorsOutputMixin,
+):
+    pass
+
+
+@dataclasses.dataclass(frozen=True)
+class ListVectorsOutput(
+    boto3_dataclass_s3vectors.type_defs.ListVectorsOutput,
+    VectorsOutputMixin,
+):
+    pass
 
 
 class Index(BaseModel):
@@ -333,4 +350,65 @@ class Index(BaseModel):
         return QueryVectorsOutput(
             boto3_raw_data=res,
             data_type=self.data_type,
+        )
+
+    def list_vectors(
+        self,
+        s3_vectors_client: "S3VectorsClient",
+        index_arn: str = OPT,
+        segment_count: int = OPT,
+        segment_index: int = OPT,
+        return_data: bool = OPT,
+        return_metadata: bool = OPT,
+        page_size: int = 100,
+        max_items: int = 9999,
+    ) -> T.Generator["ListVectorsOutput", None, None]:
+        """
+        Reference:
+            https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/paginator/ListVectors.html
+        """
+        kwargs = {
+            "vectorBucketName": self.bucket_name,
+            "indexName": self.index_name,
+            "indexArn": index_arn,
+            "segmentCount": segment_count,
+            "segmentIndex": segment_index,
+            "returnData": return_data,
+            "returnMetadata": return_metadata,
+            "PaginationConfig": {
+                "MaxItems": max_items,
+                "PageSize": page_size,
+            },
+        }
+        kwargs = remove_optional(**kwargs)
+        if "indexArn" in kwargs:
+            kwargs.pop("indexName")
+        paginator = s3_vectors_client.get_paginator("list_vectors")
+        for response in paginator.paginate(**kwargs):
+            yield ListVectorsOutput(
+                boto3_raw_data=response,
+                data_type=self.data_type,
+            )
+
+    def delete_vectors(
+        self,
+        s3_vectors_client: "S3VectorsClient",
+        keys: list[str],
+        index_arn: str = OPT,
+    ):
+        """
+        Reference:
+            https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/delete_vectors.html
+        """
+        kwargs = {
+            "indexName": self.index_name,
+            "indexArn": index_arn,
+        }
+        kwargs = remove_optional(**kwargs)
+        if "indexArn" in kwargs:
+            kwargs.pop("indexName")
+        s3_vectors_client.delete_vectors(
+            vectorBucketName=self.bucket_name,
+            keys=keys,
+            **kwargs,
         )
