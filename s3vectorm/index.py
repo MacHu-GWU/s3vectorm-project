@@ -2,50 +2,62 @@
 
 import typing as T
 import dataclasses
-import botocore.exceptions
-from mypy_boto3_s3vectors.type_defs import VectorDataTypeDef
 
-from pydantic import BaseModel, Field
+import botocore.exceptions
+from func_args.api import OPT, remove_optional
+from pydantic import BaseModel, Field, ValidationError
 from mypy_boto3_s3vectors.literals import DataTypeType, DistanceMetricType
 
 import boto3_dataclass_s3vectors.type_defs
-from boto3_dataclass_s3vectors import s3vectors_caster
 
 
 if T.TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_s3vectors import S3VectorsClient
+    from mypy_boto3_s3vectors.type_defs import MetadataConfigurationTypeDef
 
-    from .model import Model
-    from .query import Expr, CompoundExpr
+    from .vector import Vector
+    from .metadata import Expr, CompoundExpr
 
 
 @dataclasses.dataclass(frozen=True)
 class QueryVectorsOutput(boto3_dataclass_s3vectors.type_defs.QueryVectorsOutput):
-    def iterate(self, model_class: T.Type["Model"]) -> list["Model"]:
-        if self.boto3_raw_data.get("vectors", []):
-            vectors = self.boto3_raw_data
-            for vector in self.boto3_raw_data.get("vectors", []):
-                key = vector.get("key")
-                data_dict: T.Optional[VectorDataTypeDef] = vector.get("data")
-                if data_dict is None:
-                    continue
-                if len(data_dict) != 1:
-                    continue
-                data = next(iter(data_dict.values()))
-                metadata = vector.get("metadata", {})
-                yield model_class(key=key, data=data, **metadata)
+    data_type: "DataTypeType" = dataclasses.field()
 
+    def to_vectors(
+        self,
+        vector_class: T.Type["Vector"],
+    ) -> list["Vector"]:
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/query_vectors.html
+        """
+        if self.boto3_raw_data.get("vectors", []):
+            vectors = []
+            for dct in self.boto3_raw_data.get("vectors", []):
+                try:
+                    vector = vector_class(
+                        key=dct["key"],
+                        data=dct.get("data", {}).get(self.data_type),
+                        **dct.get("metadata", {}),
+                        distance=dct.get("distance", None),
+                    )
+                    vectors.append(vector)
+                except ValidationError as e:
+                    for error in e.errors():
+                        if error["type"] == "missing":
+                            field_name = error["loc"][0]
+                            if field_name not in ("key", "data", "distance"):
+                                raise ValueError(
+                                    f"Metadata field '{field_name}' is missing in the response,"
+                                    f"you may need to set 'return_metadata = True' in query_vectors(...) method"
+                                )
+                    raise
+            return vectors
         else:
             return []
 
 
-
 class Index(BaseModel):
-    """
-    Ref:
-
-    - https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/create_vector_bucket.html
-    """
+    """ """
 
     bucket_name: str = Field()
     index_name: str = Field()
@@ -56,17 +68,27 @@ class Index(BaseModel):
     def create(
         self,
         s3_vectors_client: "S3VectorsClient",
-        # todo: add more parameters
+        vector_bucket_arn: str = OPT,
+        metadata_configuration: "MetadataConfigurationTypeDef" = OPT,
     ) -> dict[str, T.Any] | None:
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/create_index.html
+        """
         try:
+            kwargs = {
+                "vectorBucketName": self.bucket_name,
+                "vectorBucketArn": vector_bucket_arn,
+                "metadataConfiguration": metadata_configuration,
+            }
+            kwargs = remove_optional(**kwargs)
+            if "vectorBucketArn" in kwargs:
+                kwargs.pop("vectorBucketName")
             return s3_vectors_client.create_index(
-                vectorBucketName=self.bucket_name,
-                # vectorBucketArn='string',
                 indexName=self.index_name,
                 dataType=self.data_type,
                 dimension=self.dimension,
                 distanceMetric=self.distance_metric,
-                # metadataConfiguration=metadataConfiguration,
+                **kwargs,
             )
 
         except botocore.exceptions.ClientError as e:
@@ -77,7 +99,7 @@ class Index(BaseModel):
     def put_vectors(
         self,
         s3_vectors_client: "S3VectorsClient",
-        vectors: list["Model"],
+        vectors: list["Vector"],
     ):
         """
         Ref:
@@ -88,7 +110,8 @@ class Index(BaseModel):
             vectorBucketName=self.bucket_name,
             indexName=self.index_name,
             vectors=[
-                vector.to_vector_dict(data_type=self.data_type) for vector in vectors
+                vector.to_put_vectors_dict(data_type=self.data_type)
+                for vector in vectors
             ],
         )
 
@@ -121,4 +144,7 @@ class Index(BaseModel):
             returnDistance=return_distance,
             **kwargs,
         )
-        return s3vectors_caster.query_vectors(res)
+        return QueryVectorsOutput(
+            boto3_raw_data=res,
+            data_type=self.data_type,
+        )
