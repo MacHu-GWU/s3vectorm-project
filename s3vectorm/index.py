@@ -24,6 +24,7 @@ import botocore.exceptions
 from func_args.api import OPT, remove_optional
 from pydantic import BaseModel, Field, ValidationError
 from mypy_boto3_s3vectors.literals import DataTypeType, DistanceMetricType
+from boto3_dataclass_s3vectors import s3vectors_caster
 import boto3_dataclass_s3vectors.type_defs
 
 
@@ -285,6 +286,64 @@ class Index(BaseModel):
         s3_vectors_client.delete_index(
             vectorBucketName=self.bucket_name,
             **kwargs,
+        )
+
+    @classmethod
+    def get(
+        cls,
+        s3_vectors_client: "S3VectorsClient",
+        vector_bucket_name: str,
+        index_name: str = OPT,
+        index_arn: str = OPT,
+    ):
+        """
+        Retrieve an existing vector index from AWS S3 Vectors service.
+
+        This method fetches the index configuration and metadata from AWS,
+        allowing you to reconstruct an `Index` object for further operations.
+        You can specify either the index name or the index ARN to identify
+        the index.
+
+        :param s3_vectors_client: The AWS S3 Vectors client to use for the operation
+        :param vector_bucket_name: Name of the S3 vector bucket containing the index
+        :param index_name: Optional name of the vector index to retrieve
+        :param index_arn: Optional ARN of the vector index to retrieve
+
+        :returns: An `Index` object representing the retrieved index
+
+        :raises botocore.exceptions.ClientError: If the index does not exist or AWS returns an error
+
+        Example:
+            >>> index = Index.get(
+            ...     s3_vectors_client,
+            ...     vector_bucket_name="my-vectors",
+            ...     index_name="documents"
+            ... )
+            >>> print(index.dimension)  # Prints the index dimension
+
+        Reference:
+            https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/get_index.html
+        """
+        try:
+            res = s3_vectors_client.get_index(
+                **remove_optional(
+                    vectorBucketName=vector_bucket_name,
+                    indexName=index_name,
+                    indexArn=index_arn,
+                )
+            )
+            res = s3vectors_caster.get_index(res)
+        except botocore.exceptions.ClientError as e:
+            if e.response["Error"]["Code"] == "NotFoundException":
+                return None
+            raise
+
+        return cls(
+            bucket_name=vector_bucket_name,
+            index_name=res.index.indexName,
+            data_type=res.index.dataType,
+            dimension=res.index.dimension,
+            distance_metric=res.index.distanceMetric,
         )
 
     def put_vectors(
