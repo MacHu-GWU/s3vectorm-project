@@ -43,6 +43,7 @@ classifier = [
 # Core Dependencies
 # ------------------------------------------------------------------------------
 dependencies = [
+    "func-args>=1.0.1,<2.0.0", # inspect function/method arguments
     "boto3>=1.40.0,<2.0.0", # AWS SDK for Python
     "boto3-dataclass[s3vectors]>=1.40.0,<2.0.0", # Transform boto3 dictionaries into type-safe dataclasses with full autocomplete support.
     "pydantic>=2.11.0,<3.0.0", # data validation and settings management using python type annotations
