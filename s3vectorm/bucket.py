@@ -151,13 +151,10 @@ class Bucket(BaseModel):
 
         Example:
             >>> bucket = Bucket(name="my-bucket")
-            >>> for page in bucket.list_index(
-            ...     s3_vectors_client,
-            ...     prefix="document-",
-            ...     page_size=50
-            ... ):
-            ...     indexes = page.get("indexes", [])
-            ...     print(f"Found {len(indexes)} indexes")
+
+            >>> for res in bucket.list_index(client):
+            ...     for index_summary in res.indexes:
+            ...         print(index_summary)
 
         Reference:
             https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/paginator/ListIndexes.html
