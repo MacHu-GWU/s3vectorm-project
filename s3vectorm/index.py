@@ -24,7 +24,6 @@ import botocore.exceptions
 from func_args.api import OPT, remove_optional
 from pydantic import BaseModel, Field, ValidationError
 from mypy_boto3_s3vectors.literals import DataTypeType, DistanceMetricType
-
 import boto3_dataclass_s3vectors.type_defs
 
 
@@ -141,7 +140,6 @@ class QueryVectorsOutput(
 
         :class:`VectorsOutputMixin`
     """
-    pass
 
 
 @dataclasses.dataclass(frozen=True)
@@ -156,7 +154,6 @@ class ListVectorsOutput(
 
         :class:`VectorsOutputMixin`
     """
-    pass
 
 
 class Index(BaseModel):
@@ -261,6 +258,34 @@ class Index(BaseModel):
             if e.response["Error"]["Code"] == "ConflictException":
                 return None
             raise
+
+    def delete(
+        self,
+        s3_vectors_client: "S3VectorsClient",
+        index_arn: str = OPT,
+    ):
+        """
+        Delete the vector index.
+
+        .. note::
+
+            Delete index will also delete all vectors in the index. You don't
+            need to delete vectors one by one before deleting the index.
+
+        Reference:
+            https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/delete_index.html
+        """
+        kwargs = {
+            "indexName": self.index_name,
+            "indexArn": index_arn,
+        }
+        kwargs = remove_optional(**kwargs)
+        if "indexArn" in kwargs:
+            kwargs.pop("indexName")
+        s3_vectors_client.delete_index(
+            vectorBucketName=self.bucket_name,
+            **kwargs,
+        )
 
     def put_vectors(
         self,
@@ -438,6 +463,22 @@ class Index(BaseModel):
         index_arn: str = OPT,
     ):
         """
+        Delete specific vectors from the index by their keys.
+
+        This method removes vectors from the S3 Vectors index based on their
+        unique keys. This is useful for selective removal of vectors that are
+        no longer needed or need to be updated.
+
+        :param s3_vectors_client: The AWS S3 Vectors client to use for the operation
+        :param keys: List of vector keys (unique identifiers) to delete
+        :param index_arn: Optional ARN of the vector index. If provided,
+            takes precedence over index_name
+
+        Example:
+            >>> # Delete specific vectors by their keys
+            >>> keys_to_delete = ["doc1", "doc2", "doc3"]
+            >>> index.delete_vectors(s3_vectors_client, keys_to_delete)
+
         Reference:
             https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/delete_vectors.html
         """
@@ -453,3 +494,43 @@ class Index(BaseModel):
             keys=keys,
             **kwargs,
         )
+
+    def delete_all_vectors(
+        self,
+        s3_vectors_client: "S3VectorsClient",
+        page_size: int = 100,
+        max_items: int = 9999,
+    ) -> int:
+        """
+        Delete all vectors in the index.
+
+        This method provides a convenient way to delete all vectors from the index
+        by first listing them with pagination and then deleting them in batches.
+        This is useful for clearing an index without deleting the index structure itself.
+
+        :param s3_vectors_client: The AWS S3 Vectors client to use for the operation
+        :param page_size: Number of vectors to process per page (default: 100)
+        :param max_items: Maximum total number of vectors to delete (default: 9999)
+
+        :returns: The total number of vectors that were deleted
+
+        Example:
+            >>> deleted_count = index.delete_all_vectors(s3_vectors_client)
+            >>> print(f"Deleted {deleted_count} vectors from the index")
+
+        .. note::
+
+            This operation may take some time for large indexes as it processes
+            vectors in batches. For very large indexes, consider using segmentation
+            parameters in list_vectors for parallel processing.
+        """
+        n_deleted = 0
+        for res in self.list_vectors(
+            s3_vectors_client=s3_vectors_client,
+            page_size=page_size,
+            max_items=max_items,
+        ):
+            keys = [dct["key"] for dct in res.boto3_raw_data.get("vectors", [])]
+            self.delete_vectors(s3_vectors_client=s3_vectors_client, keys=keys)
+            n_deleted += len(keys)
+        return n_deleted
