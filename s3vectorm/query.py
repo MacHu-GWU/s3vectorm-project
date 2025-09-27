@@ -39,6 +39,9 @@ class Expr:
         """支持 | 操作符进行 OR 逻辑"""
         return CompoundExpr(left=self, operator="$or", right=other)
 
+    def to_doc(self) -> dict:
+        return {self.field: {self.operator: self.value}}
+
 
 @dataclasses.dataclass
 class CompoundExpr:
@@ -53,6 +56,9 @@ class CompoundExpr:
     def __or__(self, other: T.Union[Expr, "CompoundExpr"]) -> "CompoundExpr":
         """支持链式 OR 操作"""
         return CompoundExpr(left=self, operator=OperatorEnum.or_.value, right=other)
+
+    def to_doc(self) -> dict:
+        return {self.operator: [self.left.to_doc(), self.right.to_doc()]}
 
 
 @dataclasses.dataclass
@@ -73,7 +79,7 @@ class MetaKey:
         return self._to_expr(op=OperatorEnum.ne, other=other)
 
     def gt(self, other: T.Any) -> Expr:
-        return self._to_expr(op=OperatorEnum.eq, other=other)
+        return self._to_expr(op=OperatorEnum.gt, other=other)
 
     def gte(self, other: T.Any) -> Expr:
         return self._to_expr(op=OperatorEnum.gte, other=other)
@@ -117,6 +123,14 @@ class MetaClass(type):
                         if not field_value.name:
                             field_value.name = field_name
                         fields[field_name] = field_value
+
+        # 扫描类属性中的 MetaKey 实例（支持无注解的定义）
+        for field_name, field_value in namespace.items():
+            if isinstance(field_value, MetaKey) and field_name not in fields:
+                # 确保 MetaKey 有正确的名称
+                if not field_value.name:
+                    field_value.name = field_name
+                fields[field_name] = field_value
 
         # 创建类
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
