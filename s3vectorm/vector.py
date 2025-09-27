@@ -18,14 +18,15 @@ class Vector(BaseModel):
     """
 
     key: str = Field()
-    data: list[float] = Field()
+    data: list[float] | None = Field(default=None)
     distance: float | None = Field(default=None)
 
-    def to_put_vectors_dct(
+    def to_put_vectors_dict(
         self,
         data_type: "DataTypeType",
     ) -> "PutInputVectorTypeDef":
         dct = self.model_dump()
+        dct.pop("distance")
         return {
             "key": dct.pop("key"),
             "data": {
@@ -38,4 +39,5 @@ class Vector(BaseModel):
         dct = self.model_dump()
         dct.pop("key")
         dct.pop("data")
+        dct.pop("distance")
         return dct
