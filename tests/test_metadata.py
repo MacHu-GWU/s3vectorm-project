@@ -28,8 +28,10 @@ def test_basic_operators():
     # Test basic operators
     assert VectorMeta.a.eq("test").to_doc() == {"a": {"$eq": "test"}}
     assert VectorMeta.b.gt(10).to_doc() == {"b": {"$gt": 10}}
+    assert VectorMeta.b.gte(10).to_doc() == {"b": {"$gte": 10}}
     assert VectorMeta.c.in_([1, 2, 3]).to_doc() == {"c": {"$in": [1, 2, 3]}}
     assert VectorMeta.d.ne("value").to_doc() == {"d": {"$ne": "value"}}
+    assert VectorMeta.e.lt(5.5).to_doc() == {"e": {"$lt": 5.5}}
     assert VectorMeta.e.lte(5.5).to_doc() == {"e": {"$lte": 5.5}}
     # Verify compound query functionality
     q = VectorMeta.a.eq("a") & VectorMeta.b.eq("b")
@@ -178,6 +180,6 @@ if __name__ == "__main__":
 
     run_cov_test(
         __file__,
-        "s3vectorm.query",
+        "s3vectorm.metadata",
         preview=False,
     )
