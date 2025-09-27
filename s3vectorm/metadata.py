@@ -281,17 +281,7 @@ class MetaClass(type):
             if hasattr(base, "_model_fields"):
                 fields.update(base._model_fields)
 
-        # Scan current class annotations for field definitions
-        if "__annotations__" in namespace:  # pragma: no cover
-            for field_name, field_type in namespace["__annotations__"].items():
-                # Check if there's a corresponding MetaKey instance as default value
-                if field_name in namespace:
-                    field_value = namespace[field_name]
-                    if isinstance(field_value, MetaKey):
-                        # Ensure MetaKey has the correct name
-                        if not field_value.name:
-                            field_value.name = field_name
-                        fields[field_name] = field_value
+        # Note: Annotations support removed as current usage pattern doesn't use type annotations
 
         # Scan class attributes for MetaKey instances (supports non-annotated definitions)
         for field_name, field_value in namespace.items():
@@ -315,61 +305,18 @@ class BaseMetadata(metaclass=MetaClass):
     Base class for metadata models providing field access and query functionality.
 
     This class serves as the foundation for creating metadata models with queryable
-    fields. It automatically manages MetaKey instances and provides runtime access
-    to fields defined in the class definition.
+    fields. It automatically manages MetaKey instances through the MetaClass metaclass.
 
     Features:
     - Automatic field registration through the MetaClass metaclass
-    - Instance-level field access with independent MetaKey objects
+    - Class-level field access for building queries
     - Support for inheritance of fields from parent classes
-    - Dynamic field access through __getattr__
 
     Example:
         >>> class DocumentMeta(BaseMetadata):
         ...     document_id = MetaKey()
         ...     status = MetaKey()
         ...
-        >>> meta = DocumentMeta()
-        >>> query = meta.document_id.eq("doc-1") & meta.status.eq("active")
+        >>> query = DocumentMeta.document_id.eq("doc-1") & DocumentMeta.status.eq("active")
     """
-
-    def __init__(self):
-        """
-        Initialize the metadata instance with independent field copies.
-
-        Creates a copy of each MetaKey field for this instance to avoid
-        shared state between different instances of the same metadata class.
-        """
-        # Create field copies for each instance to avoid shared state
-        for field_name, field_obj in self._model_fields.items():  # pragma: no cover
-            # Create a field copy ensuring each instance has independent field objects
-            field_copy = MetaKey(name=field_obj.name)
-            setattr(self, field_name, field_copy)
-
-    def __getattr__(self, name):
-        """
-        Provide dynamic access to registered metadata fields.
-
-        This method is called when accessing an attribute that doesn't exist
-        on the instance. It checks if the requested attribute is a registered
-        metadata field and creates an appropriate MetaKey instance.
-
-        Args:
-            name: The name of the attribute being accessed
-
-        Returns:
-            A MetaKey instance for the requested field
-
-        Raises:
-            AttributeError: If the requested attribute is not a registered field
-        """
-        # If accessing a defined field, return the corresponding MetaKey object
-        if name in self._model_fields:  # pragma: no cover
-            # If the field doesn't exist on the instance yet, create one
-            field_copy = MetaKey(name=self._model_fields[name].name)
-            setattr(self, name, field_copy)
-            return field_copy
-
-        raise AttributeError(
-            f"'{self.__class__.__name__}' object has no attribute '{name}'"
-        )
+    pass
