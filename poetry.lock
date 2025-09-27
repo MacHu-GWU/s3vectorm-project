@@ -191,6 +191,9 @@ files = [
     {file = "boto3_dataclass-1.40.0-py3-none-any.whl", hash = "sha256:a8806f970cc9bc59aab34a3aaaebb92b2a9e45975d0b7da75b6bae08017b9a1c"},
 ]
 
+[package.dependencies]
+boto3-dataclass-s3vectors = {version = ">=1.40.0,<1.41.0", optional = true, markers = "extra == \"s3vectors\""}
+
 [package.extras]
 accessanalyzer = ["boto3-dataclass-accessanalyzer (>=1.40.0,<1.41.0)"]
 account = ["boto3-dataclass-account (>=1.40.0,<1.41.0)"]
@@ -605,6 +608,21 @@ workspaces-instances = ["boto3-dataclass-workspaces-instances (>=1.40.0,<1.41.0)
 workspaces-thin-client = ["boto3-dataclass-workspaces-thin-client (>=1.40.0,<1.41.0)"]
 workspaces-web = ["boto3-dataclass-workspaces-web (>=1.40.0,<1.41.0)"]
 xray = ["boto3-dataclass-xray (>=1.40.0,<1.41.0)"]
+
+[[package]]
+name = "boto3-dataclass-s3vectors"
+version = "1.40.0"
+description = "Dataclass for boto3 s3vectors."
+optional = false
+python-versions = "<4.0,>=3.10"
+groups = ["main"]
+files = [
+    {file = "boto3_dataclass_s3vectors-1.40.0-py3-none-any.whl", hash = "sha256:70dba3af7165a588f5fdfe5f49a19987ecaf4d2b0f6c6b4336153cda1bd3601b"},
+]
+
+[package.dependencies]
+mypy-boto3-s3vectors = ">=1.40.0,<1.41.0"
+typing-extensions = {version = "*", markers = "python_version < \"3.12\""}
 
 [[package]]
 name = "botocore"
@@ -1666,6 +1684,21 @@ files = [
     {file = "more-itertools-10.6.0.tar.gz", hash = "sha256:2cd7fad1009c31cc9fb6a035108509e6547547a7a738374f10bd49a09eb3ee3b"},
     {file = "more_itertools-10.6.0-py3-none-any.whl", hash = "sha256:6eb054cb4b6db1473f6e15fcc676a08e4732548acd47c708f0e179c2c7c01e89"},
 ]
+
+[[package]]
+name = "mypy-boto3-s3vectors"
+version = "1.40.0"
+description = "Type annotations for boto3 S3Vectors 1.40.0 service generated with mypy-boto3-builder 8.11.0"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "mypy_boto3_s3vectors-1.40.0-py3-none-any.whl", hash = "sha256:78df51a480291280e019fce538384aa991d210e66242a05cefb84e142e230e5e"},
+    {file = "mypy_boto3_s3vectors-1.40.0.tar.gz", hash = "sha256:be5d6bf00acee6ca33799e697963cbd105d79e01ae2df30477e4256ccf311c71"},
+]
+
+[package.dependencies]
+typing-extensions = {version = "*", markers = "python_version < \"3.12\""}
 
 [[package]]
 name = "nbclient"
@@ -3177,4 +3210,4 @@ test = ["pytest", "pytest-cov"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "82fab3954003ac153c85bc11d90111ffe9c84456e3e62f93911906c527574554"
+content-hash = "9976e079ea7c58440355f41342fe167c6fe88901663d0f2541ff8f009e2e5bf7"
