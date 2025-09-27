@@ -346,6 +346,54 @@ class Index(BaseModel):
             distance_metric=res.index.distanceMetric,
         )
 
+    @classmethod
+    def new_for_delete(
+        cls,
+        bucket_name: str,
+        index_name: str,
+    ):
+        """
+        Create an Index object for deletion operations only,
+        we don't need data_type, dimension, distance_metric.
+
+        :param bucket_name: Name of the S3 vector bucket containing the index
+        :param index_name: Unique name for the vector index
+
+        :returns: An :class:`Index` object configured for deletion operations.
+        """
+        return cls(
+            bucket_name=bucket_name,
+            index_name=index_name,
+            data_type="float32",  # Placeholder, not used for deletion
+            dimension=1,  # Placeholder, not used for deletion
+            distance_metric="cosine",  # Placeholder, not used for deletion
+        )
+
+    @classmethod
+    def new_for_delete_from_list_index_response(
+        cls,
+        response: "boto3_dataclass_s3vectors.type_defs.ListIndexesOutput",
+    ):
+        """
+        Create Index objects for deletion from
+        :meth:`s3vectorm.bucket.Bucket.list_index` response.
+
+        :param response: The response from the list_index operation
+
+        :returns: A list of :class:`Index` objects configured for deletion operations.
+        """
+        try:
+            indexes = response.indexes
+        except KeyError:
+            indexes = []
+        return [
+            cls.new_for_delete(
+                bucket_name=index_summary.vectorBucketName,
+                index_name=index_summary.indexName,
+            )
+            for index_summary in indexes
+        ]
+
     def put_vectors(
         self,
         s3_vectors_client: "S3VectorsClient",
