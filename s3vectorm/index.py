@@ -42,14 +42,13 @@ VectorT = T.TypeVar("VectorT", bound="Vector")
 @dataclasses.dataclass(frozen=True)
 class VectorsOutputMixin:
     """
-    Represents the output from a vector query operation.
+    Mixin providing common functionality for vector operation outputs.
 
-    This class extends the AWS S3 Vectors QueryVectorsOutput type definition
-    to provide additional functionality for converting raw query results into
-    Vector objects. It includes the data type information needed for proper
-    vector reconstruction.
+    This mixin provides functionality for converting raw AWS S3 Vectors responses
+    into Vector objects. It is used by both QueryVectorsOutput and ListVectorsOutput
+    to provide consistent vector conversion capabilities.
 
-    :param data_type: The data type of the vectors in the query results
+    :param data_type: The data type of the vectors in the response
     :param boto3_raw_data: The raw response data from AWS (inherited)
 
     Example:
@@ -135,6 +134,13 @@ class QueryVectorsOutput(
     boto3_dataclass_s3vectors.type_defs.QueryVectorsOutput,
     VectorsOutputMixin,
 ):
+    """
+    Query vectors operation output.
+
+    .. seealso::
+
+        :class:`VectorsOutputMixin`
+    """
     pass
 
 
@@ -143,6 +149,13 @@ class ListVectorsOutput(
     boto3_dataclass_s3vectors.type_defs.ListVectorsOutput,
     VectorsOutputMixin,
 ):
+    """
+    List vectors operation output.
+
+    .. seealso::
+
+        :class:`VectorsOutputMixin`
+    """
     pass
 
 
@@ -364,6 +377,34 @@ class Index(BaseModel):
         max_items: int = 9999,
     ) -> T.Generator["ListVectorsOutput", None, None]:
         """
+        List all vectors in the index with pagination support.
+
+        This method retrieves vectors from the S3 Vectors index using pagination
+        to handle large result sets efficiently. It supports segmentation for
+        parallel processing and optional return of vector data and metadata.
+
+        :param s3_vectors_client: The AWS S3 Vectors client to use for the operation
+        :param index_arn: Optional ARN of the vector index. If provided,
+            takes precedence over index_name
+        :param segment_count: Total number of segments for parallel processing
+        :param segment_index: Index of the segment to retrieve (0-based)
+        :param return_data: Whether to include vector data in the results
+        :param return_metadata: Whether to include metadata in the results
+        :param page_size: Number of vectors per page (default: 100)
+        :param max_items: Maximum total number of vectors to retrieve (default: 9999)
+
+        :yields: ListVectorsOutput objects containing paginated vector results
+
+        Example:
+            >>> for page in index.list_vectors(
+            ...     s3_vectors_client,
+            ...     return_data=True,
+            ...     return_metadata=True,
+            ...     page_size=50
+            ... ):
+            ...     vectors = page.as_vector_objects(Vector)
+            ...     print(f"Retrieved {len(vectors)} vectors")
+
         Reference:
             https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/paginator/ListVectors.html
         """
