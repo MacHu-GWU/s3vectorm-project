@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 
 import typing as T
+import dataclasses
 import botocore.exceptions
 from mypy_boto3_s3vectors.type_defs import VectorDataTypeDef
 
 from pydantic import BaseModel, Field
 from mypy_boto3_s3vectors.literals import DataTypeType, DistanceMetricType
+
+import boto3_dataclass_s3vectors.type_defs
 from boto3_dataclass_s3vectors import s3vectors_caster
 
 
@@ -13,6 +16,28 @@ if T.TYPE_CHECKING:  # pragma: no cover
     from mypy_boto3_s3vectors import S3VectorsClient
 
     from .model import Model
+    from .query import Expr, CompoundExpr
+
+
+@dataclasses.dataclass(frozen=True)
+class QueryVectorsOutput(boto3_dataclass_s3vectors.type_defs.QueryVectorsOutput):
+    def iterate(self, model_class: T.Type["Model"]) -> list["Model"]:
+        if self.boto3_raw_data.get("vectors", []):
+            vectors = self.boto3_raw_data
+            for vector in self.boto3_raw_data.get("vectors", []):
+                key = vector.get("key")
+                data_dict: T.Optional[VectorDataTypeDef] = vector.get("data")
+                if data_dict is None:
+                    continue
+                if len(data_dict) != 1:
+                    continue
+                data = next(iter(data_dict.values()))
+                metadata = vector.get("metadata", {})
+                yield model_class(key=key, data=data, **metadata)
+
+        else:
+            return []
+
 
 
 class Index(BaseModel):
@@ -72,7 +97,7 @@ class Index(BaseModel):
         s3_vectors_client: "S3VectorsClient",
         data: list[float],
         top_k: int = 10,
-        filter = None,
+        filter: T.Optional[T.Union["Expr", "CompoundExpr"]] = None,
         return_metadata: bool = False,
         return_distance: bool = False,
     ):
@@ -81,15 +106,19 @@ class Index(BaseModel):
 
         - https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/query_vectors.html
         """
-        # print(filter.to_doc())
-        # res = s3_vectors_client.query_vectors(
-        #     vectorBucketName=self.bucket_name,
-        #     indexName=self.index_name,
-        #     topK=top_k,
-        #     queryVector={
-        #         self.data_type: data,
-        #     },
-        #     returnMetadata=return_metadata,
-        #     returnDistance=return_distance,
-        # )
+        if filter is None:
+            kwargs = {}
+        else:
+            kwargs = {"filter": filter.to_doc()}
+        res = s3_vectors_client.query_vectors(
+            vectorBucketName=self.bucket_name,
+            indexName=self.index_name,
+            topK=top_k,
+            queryVector={
+                self.data_type: data,
+            },
+            returnMetadata=return_metadata,
+            returnDistance=return_distance,
+            **kwargs,
+        )
         return s3vectors_caster.query_vectors(res)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from s3vectorm.query import OperatorEnum, MetaKey, BaseMetadata, Expr, CompoundExpr
+from s3vectorm.metadata import MetaKey, BaseMetadata
 
 
 class Vector1Meta(BaseMetadata):
