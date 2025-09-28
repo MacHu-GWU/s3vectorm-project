@@ -123,7 +123,7 @@ class VectorsOutputMixin:
                                     f"Metadata field '{field_name}' is missing in the response,"
                                     f"you may need to set 'return_metadata = True' in query_vectors(...) method"
                                 )
-                    raise
+                    raise  # pragma: no cover
             return vectors
         else:
             return []
@@ -638,6 +638,7 @@ class Index(BaseModel):
             max_items=max_items,
         ):
             keys = [dct["key"] for dct in res.boto3_raw_data.get("vectors", [])]
-            self.delete_vectors(s3_vectors_client=s3_vectors_client, keys=keys)
-            n_deleted += len(keys)
+            if len(keys):
+                self.delete_vectors(s3_vectors_client=s3_vectors_client, keys=keys)
+                n_deleted += len(keys)
         return n_deleted
